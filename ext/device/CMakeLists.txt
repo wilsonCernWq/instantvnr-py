@@ -32,6 +32,13 @@ PRIVATE
   rendercommon 
   TBB::tbb
 )
+# tfnmodule is linked PRIVATE into rendercommon, so its PUBLIC include
+# directories (which contain colormap.h) do not propagate to consumers.
+# Pull them in explicitly so ext/serializer.cpp can find <colormap.h>.
+# Symbol resolution still goes through librendercommon.so; no re-link needed.
+target_include_directories(device_hyperinr PRIVATE
+  $<TARGET_PROPERTY:tfnmodule,INTERFACE_INCLUDE_DIRECTORIES>
+)
 target_compile_options(device_hyperinr 
 PRIVATE 
   $<$<COMPILE_LANGUAGE:CUDA>:${CUDA_NVCC_FLAGS}>
