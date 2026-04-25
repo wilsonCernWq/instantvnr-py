@@ -65,10 +65,63 @@ def _find_exe(name: str) -> str:
     )
 
 
-def _vec3(values: Sequence[float]) -> list[str]:
-    if len(values) != 3:
-        raise ValueError(f"expected 3 floats, got {values!r}")
-    return [str(float(v)) for v in values]
+def _parse_vec3(values) -> tuple[float, float, float]:
+    """Parse user input into a float vec3.
+
+    Accepted forms:
+    - comma-separated string: "x,y,z" (also supports "(x,y,z)" / "[x,y,z]")
+    - Python sequence of 3 numbers: [x, y, z], (x, y, z)
+    - numpy array (shape (3,) or any shape with 3 elements)
+    - torch tensor (CPU/GPU, shape (3,) or any shape with 3 elements)
+    """
+    # String path: "x,y,z" (plus optional wrappers)
+    if isinstance(values, str):
+        text = values.strip()
+        if text and text[0] in "([{" and text[-1] in ")]}":
+            text = text[1:-1].strip()
+        parts = [p.strip() for p in text.split(",")] if "," in text else text.split()
+        parts = [p for p in parts if p]
+        if len(parts) != 3:
+            raise ValueError(f"expected vec3 string with 3 values, got {values!r}")
+        return float(parts[0]), float(parts[1]), float(parts[2])
+
+    # Tensor/ndarray-like path.
+    if hasattr(values, "reshape") and hasattr(values, "tolist"):
+        array_like = values
+        if hasattr(array_like, "detach"):
+            array_like = array_like.detach()
+        if hasattr(array_like, "cpu"):
+            array_like = array_like.cpu()
+        flattened = array_like.reshape(-1).tolist()
+        if len(flattened) != 3:
+            raise ValueError(f"expected array/tensor with 3 elements, got {values!r}")
+        return float(flattened[0]), float(flattened[1]), float(flattened[2])
+
+    # Generic sequence path
+    if isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
+        if len(values) != 3:
+            raise ValueError(f"expected 3 floats, got {values!r}")
+        return float(values[0]), float(values[1]), float(values[2])
+
+    raise ValueError(
+        "expected vec3 input as comma string, 3-item sequence, numpy array, or torch tensor; "
+        f"got {type(values).__name__}: {values!r}"
+    )
+
+
+def _vec3_as_triplet_args(values) -> list[str]:
+    """Encode vec3 as three CLI arguments: ['x', 'y', 'z']."""
+    x, y, z = _parse_vec3(values)
+    return [str(x), str(y), str(z)]
+
+
+def _vec3_as_single_arg(values) -> list[str]:
+    """Encode vec3 as one CLI argument: ['x,y,z'].
+
+    Needed by apps that use args.hxx ValueFlag<vec3f, Vec3fReader>.
+    """
+    x, y, z = _parse_vec3(values)
+    return [f"{x},{y},{z}"]
 
 
 # ---------------------------------------------------------------------------
@@ -120,11 +173,11 @@ def run_batch(
     cmd += ["--density-scale", str(density_scale)]
 
     if camera_from is not None:
-        cmd += ["--camera-from"] + _vec3(camera_from)
+        cmd += ["--camera-from"] + _vec3_as_single_arg(camera_from)
     if camera_at is not None:
-        cmd += ["--camera-at"] + _vec3(camera_at)
+        cmd += ["--camera-at"] + _vec3_as_single_arg(camera_at)
     if camera_up is not None:
-        cmd += ["--camera-up"] + _vec3(camera_up)
+        cmd += ["--camera-up"] + _vec3_as_single_arg(camera_up)
 
     if tfn is not None:
         cmd += ["--tfn", tfn]
@@ -196,11 +249,11 @@ def run_int_single(
     cmd += ["--density-scale", str(density_scale)]
 
     if camera_from is not None:
-        cmd += ["--camera-from"] + _vec3(camera_from)
+        cmd += ["--camera-from"] + _vec3_as_single_arg(camera_from)
     if camera_at is not None:
-        cmd += ["--camera-at"] + _vec3(camera_at)
+        cmd += ["--camera-at"] + _vec3_as_single_arg(camera_at)
     if camera_up is not None:
-        cmd += ["--camera-up"] + _vec3(camera_up)
+        cmd += ["--camera-up"] + _vec3_as_single_arg(camera_up)
 
     if force_camera:
         cmd += ["--force-camera"]
@@ -271,11 +324,11 @@ def run_int_dual(
     cmd += ["--density-scale", str(density_scale)]
 
     if camera_from is not None:
-        cmd += ["--camera-from"] + _vec3(camera_from)
+        cmd += ["--camera-from"] + _vec3_as_triplet_args(camera_from)
     if camera_at is not None:
-        cmd += ["--camera-at"] + _vec3(camera_at)
+        cmd += ["--camera-at"] + _vec3_as_triplet_args(camera_at)
     if camera_up is not None:
-        cmd += ["--camera-up"] + _vec3(camera_up)
+        cmd += ["--camera-up"] + _vec3_as_triplet_args(camera_up)
 
     if max_frames > 0:
         cmd += ["--max-frames", str(max_frames)]
