@@ -14,6 +14,9 @@ Python distribution of [VIDILabs/instantvnr](https://github.com/VIDILabs/instant
 
 The C++ core lives under `ext/`. The OVR rendering framework ([`VIDILabs/open-volume-renderer`](https://github.com/VIDILabs/open-volume-renderer)) is vendored as the `ovr/` submodule. Build orchestration goes through [scikit-build-core](https://scikit-build-core.readthedocs.io/) + CMake and is driven by [`uv`](https://docs.astral.sh/uv/).
 
+
+![showcase](./showcase.jpg)
+
 ## Features
 
 - HashGrid + FullyFusedMLP neural-volume training via [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn)
